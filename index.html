@@ -191,6 +191,25 @@
             font-weight: 600;
             word-wrap: break-word; /* Ensure long text wraps */
         }
+
+        /* Status counters display */
+        .status-counters {
+            display: flex;
+            justify-content: space-between;
+            margin: 1rem 0;
+            padding: 10px;
+            background-color: var(--usm-light-yellow);
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        .present-count {
+            color: var(--usm-green);
+        }
+
+        .late-count {
+            color: #d9534f;
+        }
     </style>
 </head>
 <body>
@@ -217,7 +236,7 @@
 
             <p class="small-link">
                 Already have an account? <a href="#" id="show-login">Login</a><br />
-                Don’t have an account? <a href="#" id="show-register">Register</a>
+                Don't have an account? <a href="#" id="show-register">Register</a>
             </p>
         </div>
 
@@ -240,6 +259,10 @@
 
             <div id="attendance-capture" style="display:none;">
                 <h3>Scan Student ID</h3>
+                <div class="status-counters">
+                    <span class="present-count">Present: <span id="present-count">0</span></span>
+                    <span class="late-count">Late: <span id="late-count">0</span></span>
+                </div>
                 <div class="nfc-qr-buttons">
                     <button id="scan-nfc-btn">📶 NFC</button>
                     <button id="scan-qr-btn">🔍 QR</button>
@@ -294,6 +317,8 @@
             const qrCanvasContext = qrCanvas.getContext('2d');
             const studentIdInput = document.getElementById('student-id');
             const studentList = document.getElementById('student-list');
+            const presentCountDisplay = document.getElementById('present-count');
+            const lateCountDisplay = document.getElementById('late-count');
 
             // --- State Variables ---
             let loggedInUser = localStorage.getItem('loggedInUser'); // Stores the username of the logged-in user
@@ -304,19 +329,16 @@
             let currentSessionId = null; // Unique ID for the current session
 
             // Tracks students who have marked attendance for the *current active session* only (for display)
-            // This will still only show ONE status per student per session for the display list.
             let attendanceDataForCurrentSession = [];
             let qrScanningActive = false; // Flag to control QR scanner loop
             let pendingStudentScan = null; // Stores scan info while modal is open for new student registration
 
-            // Centralized student database: stores ALL students and their cumulative attendance
-            let studentsDB = loadStudentsDB();
-
             // --- Local Storage Helper Functions ---
-            // Loads the global student database from localStorage
+            // Loads the current user's student database from localStorage
             function loadStudentsDB() {
                 try {
-                    const stored = localStorage.getItem('allStudents');
+                    if (!loggedInUser) return [];
+                    const stored = localStorage.getItem(`allStudents_${loggedInUser}`);
                     const parsed = stored ? JSON.parse(stored) : [];
                     // Ensure each student has attendanceHistory array and convert old `isLate` to `status`
                     return parsed.map(student => ({
@@ -341,10 +363,11 @@
                 }
             }
 
-            // Saves the global student database to localStorage
+            // Saves the current user's student database to localStorage
             function saveStudentsDB() {
                 try {
-                    localStorage.setItem('allStudents', JSON.stringify(studentsDB));
+                    if (!loggedInUser) return;
+                    localStorage.setItem(`allStudents_${loggedInUser}`, JSON.stringify(studentsDB));
                 } catch (e) {
                     console.error("Error saving studentsDB to localStorage:", e);
                 }
@@ -375,6 +398,14 @@
                 // Ensure forms are in default state when showing auth section
                 loginForm.style.display = 'block';
                 registerForm.style.display = 'none';
+            }
+
+            // Update the status counters display
+            function updateStatusCounters() {
+                const presentCount = attendanceDataForCurrentSession.filter(s => s.status === 'Present').length;
+                const lateCount = attendanceDataForCurrentSession.filter(s => s.status === 'Late').length;
+                presentCountDisplay.textContent = presentCount;
+                lateCountDisplay.textContent = lateCount;
             }
 
             // --- Authentication Event Listeners ---
@@ -427,6 +458,7 @@
                 }
                 loggedInUser = username;
                 localStorage.setItem('loggedInUser', loggedInUser);
+                studentsDB = loadStudentsDB(); // Load the current user's student database
                 showAttendanceSection();
             });
 
@@ -470,9 +502,6 @@
                 // Reset attendance data for the new session
                 attendanceDataForCurrentSession = [];
                 // Populate attendanceDataForCurrentSession from studentsDB for the currentSessionId
-                // Note: With "update every scan" logic, this initial population might not be strictly needed
-                // if the display only reflects the *latest* scan for a student in this session.
-                // However, keeping it helps ensure previously scanned students in this session are shown.
                 studentsDB.forEach(student => {
                     const sessionRecord = student.attendanceHistory.find(
                         record => record.sessionId === currentSessionId
@@ -487,10 +516,10 @@
                     }
                 });
 
-
                 sessionSettings.style.display = 'none'; // Hide session settings
                 attendanceCapture.style.display = 'block'; // Show QR/NFC buttons
                 attendanceDisplay.style.display = 'block'; // Show attendance list
+                updateStatusCounters(); // Initialize counters
                 refreshStudentListUI(); // Initialize the displayed list
                 alert(`Session for ${currentCourse} (${currentSemester}) at ${currentClassTimeStr} started. Ready to scan!`);
             });
@@ -514,6 +543,7 @@
                         }
                     });
                 }
+                updateStatusCounters(); // Update the counters after refreshing the list
             }
 
             // --- Export to Excel Functionality ---
@@ -640,14 +670,12 @@
                     alert('NFC scan started. Tap your NFC tag to the back of your device.');
                     // Event listener for reading errors
                     ndef.onreadingerror = () => {
-                        alert('Cannot read data from NFC tag. Make sure it\'s a valid tag and try again.');
+                        alert('Cannot read data from NFC tag. Make sure it's a valid tag and try again.');
                     };
                     // Event listener for successful tag reading
                     ndef.onreading = event => {
                         let nfcId = '';
                         // Attempt to get serial number first (unique hardware ID)
-                        // Note: serialNumber is often device-specific and not always available or consistent for NDEF tags.
-                        // Reading data from records is generally more reliable for custom IDs.
                         if (event.serialNumber) {
                             nfcId = event.serialNumber;
                         } else if (event.message && event.message.records && event.message.records.length > 0) {
@@ -699,7 +727,7 @@
                         record => record.sessionId === currentSessionId
                     );
 
-                    // --- CRITICAL CHANGE HERE: UPDATE COUNT AND STATUS EVERY TIME ---
+                    // Update counts based on the new status
                     if (determinedStatus === 'Late') {
                         student.lateCount = (student.lateCount || 0) + 1;
                         alert(`Welcome, ${student.name}! Marked as Late. Total Late: ${student.lateCount}`);
@@ -711,7 +739,6 @@
                     if (existingSessionRecord) {
                         // If record exists, simply update its status for the current session.
                         existingSessionRecord.status = determinedStatus;
-                        // The counts are already updated above.
                     } else {
                         // If no record for this session, add a new one.
                         const sessionAttendanceRecord = {
@@ -727,11 +754,12 @@
                     saveStudentsDB(); // Save updated student counts and history to local storage
 
                     // Update the current session's attendance data for display
-                    // Find and update the existing record in `attendanceDataForCurrentSession` or add a new one
                     const displayRecordIndex = attendanceDataForCurrentSession.findIndex(rec => rec.id === id);
                     if (displayRecordIndex !== -1) {
+                        // Update existing record's status
                         attendanceDataForCurrentSession[displayRecordIndex].status = determinedStatus;
                     } else {
+                        // Add new record to current session
                         attendanceDataForCurrentSession.push({
                             id: id,
                             name: student.name,
@@ -796,18 +824,12 @@
                     attendanceHistory: [] // Initialize empty history
                 };
 
-                studentsDB.push(newStudent);
-                
-                alert(`Student ${name} registered successfully!`);
-                newStudentModal.style.display = 'none';
-
-                // If this registration was triggered by a scan, mark attendance now and update counts
+                // If this registration was triggered by a scan, set initial counts and add to attendance
                 if (pendingStudentScan && pendingStudentScan.id === id && pendingStudentScan.sessionId === currentSessionId) {
-                    // Update new student's cumulative counts based on the pending scan's status
                     if (pendingStudentScan.status === 'Late') {
-                        newStudent.lateCount += 1;
-                    } else { // 'Present'
-                        newStudent.presentCount += 1;
+                        newStudent.lateCount = 1;
+                    } else {
+                        newStudent.presentCount = 1;
                     }
 
                     // Add to the new student's attendance history
@@ -826,11 +848,15 @@
                         program: newStudent.program,
                         status: pendingStudentScan.status
                     });
-
-                    refreshStudentListUI(); // Update the attendance list
-                    pendingStudentScan = null; // Clear the pending scan
                 }
+
+                studentsDB.push(newStudent);
+                
+                alert(`Student ${name} registered successfully!`);
+                newStudentModal.style.display = 'none';
+                pendingStudentScan = null; // Clear the pending scan
                 saveStudentsDB(); // Save the new student (and updated counts/history)
+                refreshStudentListUI(); // Update the attendance list
             });
         });
     </script>
