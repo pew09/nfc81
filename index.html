@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>USM Attendance System - Green & Yellow Theme</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        /* USM Theme Colors */
+        :root {
+            --usm-green: #006400; /* Dark Green */
+            --usm-yellow: #FFDD00; /* Bright Yellow */
+            --usm-dark-green: #004d00; /* Even darker green for hover states */
+            --usm-light-yellow: #fffbe6; /* Very light yellow for modals/backgrounds */
+        }
+
+        /* General Body Styles */
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif; /* Modern, readable font */
+            background: url('https://upload.wikimedia.org/wikipedia/commons/9/9e/USM_Arch_Cotabato.jpg') no-repeat center center fixed;
+            background-size: cover; /* Cover the entire background */
+            position: relative; /* Needed for the ::before overlay */
+            min-height: 100vh; /* Full viewport height */
+            color: var(--usm-green); /* Default text color */
+        }
+
+        /* Overlay for background image to improve readability */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 77, 0, 0.75); /* Dark green overlay with transparency */
+            z-index: -1; /* Place behind content */
+        }
+
+        /* Main Container for the application */
+        .container {
+            max-width: 400px;
+            background-color: #fff; /* White background for the form/content area */
+            margin: 3rem auto; /* Center with top/bottom margin */
+            padding: 2rem;
+            border-radius: 15px; /* Rounded corners */
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3); /* Soft shadow for depth */
+            color: var(--usm-green); /* Ensure text inside is green */
+        }
+
+        /* Logo and Heading Styles */
+        .logo {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .logo img {
+            width: 120px; /* Size for the logo */
+            display: block; /* Center image */
+            margin: 0 auto 1rem;
+        }
+
+        h2, h3 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-weight: 600; /* Slightly bolder headings */
+        }
+
+        /* Form Styles */
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem; /* Space between form elements */
+            margin-bottom: 1.5rem;
+        }
+
+        input, select {
+            padding: 14px;
+            border: 2px solid var(--usm-green);
+            border-radius: 10px;
+            font-size: 1.1rem;
+            outline-offset: 2px; /* Outline when focused */
+            transition: border-color 0.3s ease; /* Smooth transition for border */
+        }
+
+        input:focus, select:focus {
+            border-color: var(--usm-yellow); /* Yellow border on focus */
+            outline: none; /* Remove default outline */
+        }
+
+        button {
+            background-color: var(--usm-green);
+            color: white;
+            font-weight: 700;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: var(--usm-dark-green); /* Darker green on hover */
+        }
+
+        /* Small links for login/register toggling */
+        .small-link {
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--usm-green);
+        }
+
+        .small-link a {
+            color: var(--usm-yellow);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .small-link a:hover {
+            text-decoration: underline;
+        }
+
+        /* NFC and QR button group */
+        .nfc-qr-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .nfc-qr-buttons button {
+            width: 100%;
+            font-size: 1.2rem;
+            padding: 1rem;
+            border-radius: 12px;
+            font-weight: 700;
+            background-color: var(--usm-yellow); /* Yellow buttons */
+            color: var(--usm-green); /* Green text on yellow buttons */
+            border: 2px solid var(--usm-green); /* Green border for yellow buttons */
+        }
+
+        .nfc-qr-buttons button:hover {
+            background-color: #e6ca00; /* Darker yellow on hover */
+        }
+
+        /* QR Video and Canvas */
+        video, canvas {
+            display: none; /* Hidden by default, shown when QR scanning starts */
+            width: 100%; /* Make video/canvas responsive */
+            max-width: 360px; /* Max width for scanning area */
+            margin: 1rem auto; /* Center horizontally */
+            border: 2px solid var(--usm-green);
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        /* New Student Modal */
+        #new-student-modal {
+            background: var(--usm-light-yellow); /* Light yellow background */
+            color: var(--usm-green);
+            padding: 2rem;
+            border-radius: 15px;
+            position: fixed; /* Fixed position over content */
+            top: 10%; /* 10% from the top */
+            left: 50%; /* Center horizontally */
+            transform: translateX(-50%); /* Adjust for perfect centering */
+            width: 90%; /* Responsive width */
+            max-width: 400px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+            z-index: 999; /* High z-index to appear on top */
+            display: none; /* Hidden by default */
+        }
+
+        /* Student List Display */
+        #student-list {
+            list-style: none; /* Remove bullet points */
+            padding-left: 0;
+            max-height: 220px; /* Limit height and enable scrolling */
+            overflow-y: auto;
+            margin-top: 1rem;
+            border: 1px solid var(--usm-green); /* Added border for better visibility */
+            border-radius: 10px;
+            padding: 10px;
+            background-color: #f8f8f8; /* Slightly off-white background */
+        }
+
+        #student-list li {
+            background: #fff7cc; /* Light yellow background for list items */
+            color: var(--usm-green);
+            padding: 12px 15px;
+            margin: 5px 0;
+            border-radius: 12px;
+            font-weight: 600;
+            word-wrap: break-word; /* Ensure long text wraps */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/e/e0/University_of_Southern_Mindanao_Seal.svg" alt="USM Logo">
+            <h3>University of Southern Mindanao</h3>
+        </div>
+
+        <div id="auth-section">
+            <form id="login-form">
+                <h2>Sign In</h2>
+                <input type="text" id="login-username" placeholder="Email Address" required />
+                <input type="password" id="login-password" placeholder="Password" required />
+                <button type="submit">SIGN IN</button>
+            </form>
+
+            <form id="register-form" style="display:none;">
+                <h2>Register</h2>
+                <input type="text" id="register-username" placeholder="Email Address" required />
+                <input type="password" id="register-password" placeholder="Password" required />
+                <button type="submit">REGISTER</button>
+            </form>
+
+            <p class="small-link">
+                Already have an account? <a href="#" id="show-login">Login</a><br />
+                Don’t have an account? <a href="#" id="show-register">Register</a>
+            </p>
+        </div>
+
+        <div id="attendance-section" style="display:none;">
+            <h3>Attendance System</h3>
+            <div id="session-settings">
+                <label for="course">Course:</label>
+                <input type="text" id="course" placeholder="e.g., CS 101" required />
+                <label for="semester">Semester:</label>
+                <select id="semester">
+                    <option value="1st Sem Midterm">1st Sem Midterm</option>
+                    <option value="1st Sem Final">1st Sem Final</option>
+                    <option value="2nd Sem Midterm">2nd Sem Midterm</option>
+                    <option value="2nd Sem Final">2nd Sem Final</option>
+                </select>
+                <label for="class-time">Class Time (hh:mm):</label>
+                <input type="time" id="class-time" required />
+                <button id="start-session-btn">Start Session</button>
+            </div>
+
+            <div id="attendance-capture" style="display:none;">
+                <h3>Scan Student ID</h3>
+                <div class="nfc-qr-buttons">
+                    <button id="scan-nfc-btn">📶 NFC</button>
+                    <button id="scan-qr-btn">🔍 QR</button>
+                </div>
+                <video id="qr-video" playsinline></video>
+                <canvas id="qr-canvas"></canvas>
+            </div>
+
+            <div id="attendance-display" style="display:none;">
+                <h3>Students Marked for This Session</h3>
+                <ul id="student-list"></ul>
+                <button id="export-excel-btn">Export All Student Data to Excel</button>
+            </div>
+
+            <button id="logout-btn">Logout</button>
+        </div>
+
+        <div id="new-student-modal">
+            <h3>New Student Info</h3>
+            <form id="new-student-form">
+                <input type="hidden" id="student-id" />
+                <input type="text" id="student-name" placeholder="Name" required />
+                <input type="text" id="student-program" placeholder="Program" required />
+                <button type="submit">Save Student</button>
+                <button type="button" id="cancel-student-btn">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Element References ---
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const showLoginLink = document.getElementById('show-login');
+            const showRegisterLink = document.getElementById('show-register');
+            const authSection = document.getElementById('auth-section');
+            const attendanceSection = document.getElementById('attendance-section');
+            const sessionSettings = document.getElementById('session-settings');
+            const attendanceCapture = document.getElementById('attendance-capture');
+            const attendanceDisplay = document.getElementById('attendance-display');
+            const logoutBtn = document.getElementById('logout-btn');
+            const startSessionBtn = document.getElementById('start-session-btn');
+            const scanQrBtn = document.getElementById('scan-qr-btn');
+            const scanNfcBtn = document.getElementById('scan-nfc-btn');
+            const exportExcelBtn = document.getElementById('export-excel-btn');
+            const newStudentModal = document.getElementById('new-student-modal');
+            const newStudentForm = document.getElementById('new-student-form');
+            const cancelStudentBtn = document.getElementById('cancel-student-btn');
+            const qrVideo = document.getElementById('qr-video');
+            const qrCanvas = document.getElementById('qr-canvas');
+            const qrCanvasContext = qrCanvas.getContext('2d');
+            const studentIdInput = document.getElementById('student-id');
+            const studentList = document.getElementById('student-list');
+
+            // --- State Variables ---
+            let loggedInUser = localStorage.getItem('loggedInUser'); // Stores the username of the logged-in user
+            let currentCourse = null;
+            let currentSemester = null;
+            let classStartTime = null; // Date object for the specified class start time
+            let currentClassTimeStr = null; // String "hh:mm" for the scheduled class time
+            let currentSessionId = null; // Unique ID for the current session
+
+            // Tracks students who have marked attendance for the *current active session* only (for display)
+            // This will still only show ONE status per student per session for the display list.
+            let attendanceDataForCurrentSession = [];
+            let qrScanningActive = false; // Flag to control QR scanner loop
+            let pendingStudentScan = null; // Stores scan info while modal is open for new student registration
+
+            // Centralized student database: stores ALL students and their cumulative attendance
+            let studentsDB = loadStudentsDB();
+
+            // --- Local Storage Helper Functions ---
+            // Loads the global student database from localStorage
+            function loadStudentsDB() {
+                try {
+                    const stored = localStorage.getItem('allStudents');
+                    const parsed = stored ? JSON.parse(stored) : [];
+                    // Ensure each student has attendanceHistory array and convert old `isLate` to `status`
+                    return parsed.map(student => ({
+                        ...student,
+                        attendanceHistory: (student.attendanceHistory || []).map(record => {
+                            // Convert old format to new format if necessary
+                            if (typeof record.isLate !== 'undefined') {
+                                return {
+                                    sessionId: record.sessionId,
+                                    status: record.isLate ? 'Late' : 'Present',
+                                    course: record.course,
+                                    semester: record.semester,
+                                    classTime: record.classTime
+                                };
+                            }
+                            return record; // Already in new format or no status to convert
+                        })
+                    }));
+                } catch (e) {
+                    console.error("Error loading studentsDB from localStorage:", e);
+                    return []; // Return empty array on error
+                }
+            }
+
+            // Saves the global student database to localStorage
+            function saveStudentsDB() {
+                try {
+                    localStorage.setItem('allStudents', JSON.stringify(studentsDB));
+                } catch (e) {
+                    console.error("Error saving studentsDB to localStorage:", e);
+                }
+            }
+
+            // --- UI State Management Functions ---
+            // Controls which main section (auth or attendance) is visible
+            if (loggedInUser) {
+                showAttendanceSection();
+            } else {
+                showAuthSection();
+            }
+
+            function showAttendanceSection() {
+                authSection.style.display = 'none';
+                attendanceSection.style.display = 'block';
+                sessionSettings.style.display = 'block'; // Always show session settings first
+                attendanceCapture.style.display = 'none'; // Hide capture until session starts
+                attendanceDisplay.style.display = 'none'; // Hide display until session starts
+                logoutBtn.style.display = 'inline-block';
+                // The student list for the current session will be refreshed once a session starts
+            }
+
+            function showAuthSection() {
+                authSection.style.display = 'block';
+                attendanceSection.style.display = 'none';
+                logoutBtn.style.display = 'none';
+                // Ensure forms are in default state when showing auth section
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+            }
+
+            // --- Authentication Event Listeners ---
+            showLoginLink.addEventListener('click', e => {
+                e.preventDefault();
+                registerForm.style.display = 'none';
+                loginForm.style.display = 'block';
+            });
+
+            showRegisterLink.addEventListener('click', e => {
+                e.preventDefault();
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+            });
+
+            registerForm.addEventListener('submit', e => {
+                e.preventDefault();
+                const username = document.getElementById('register-username').value.trim();
+                const password = document.getElementById('register-password').value.trim();
+
+                if (!username || !password) {
+                    alert('Please enter both email and password.');
+                    return;
+                }
+
+                if (localStorage.getItem(`user_${username}`)) {
+                    alert('User already exists. Please try a different email or log in.');
+                    return;
+                }
+                localStorage.setItem(`user_${username}`, JSON.stringify({ password }));
+                alert('Registered successfully. Please log in.');
+                registerForm.style.display = 'none';
+                loginForm.style.display = 'block';
+            });
+
+            loginForm.addEventListener('submit', e => {
+                e.preventDefault();
+                const username = document.getElementById('login-username').value.trim();
+                const password = document.getElementById('login-password').value.trim();
+                const userData = localStorage.getItem(`user_${username}`);
+
+                if (!userData) {
+                    alert('User does not exist. Please register.');
+                    return;
+                }
+                const user = JSON.parse(userData);
+                if (user.password !== password) {
+                    alert('Incorrect password.');
+                    return;
+                }
+                loggedInUser = username;
+                localStorage.setItem('loggedInUser', loggedInUser);
+                showAttendanceSection();
+            });
+
+            logoutBtn.addEventListener('click', () => {
+                localStorage.removeItem('loggedInUser');
+                loggedInUser = null;
+                // Clear session-specific data upon logout
+                currentCourse = null;
+                currentSemester = null;
+                classStartTime = null;
+                currentClassTimeStr = null;
+                currentSessionId = null;
+                attendanceDataForCurrentSession = []; // Clear current session's attendance
+                showAuthSection();
+                stopQrScanner(); // Ensure camera is turned off if active
+            });
+
+            // --- Session Management ---
+            startSessionBtn.addEventListener('click', () => {
+                const courseInput = document.getElementById('course').value.trim();
+                const semesterInput = document.getElementById('semester').value;
+                const timeInput = document.getElementById('class-time').value; // e.g., "08:00"
+
+                if (!courseInput || !semesterInput || !timeInput) {
+                    alert('Please fill all session details (Course, Semester, Class Time) to start.');
+                    return;
+                }
+                currentCourse = courseInput;
+                currentSemester = semesterInput;
+                currentClassTimeStr = timeInput;
+
+                // Create a Date object for the class start time on the current day
+                const now = new Date();
+                const [hours, minutes] = timeInput.split(':').map(Number);
+                classStartTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+
+                // Generate a unique session ID for today's class
+                // Format: COURSE-SEMESTER-YYYY-MM-DD-HHMM
+                currentSessionId = `${currentCourse.replace(/\s/g, '_')}-${currentSemester.replace(/\s/g, '_')}-${now.toISOString().slice(0, 10)}-${timeInput.replace(':', '')}`;
+
+                // Reset attendance data for the new session
+                attendanceDataForCurrentSession = [];
+                // Populate attendanceDataForCurrentSession from studentsDB for the currentSessionId
+                // Note: With "update every scan" logic, this initial population might not be strictly needed
+                // if the display only reflects the *latest* scan for a student in this session.
+                // However, keeping it helps ensure previously scanned students in this session are shown.
+                studentsDB.forEach(student => {
+                    const sessionRecord = student.attendanceHistory.find(
+                        record => record.sessionId === currentSessionId
+                    );
+                    if (sessionRecord) {
+                        attendanceDataForCurrentSession.push({
+                            id: student.id,
+                            name: student.name,
+                            program: student.program,
+                            status: sessionRecord.status // Use the 'status' directly
+                        });
+                    }
+                });
+
+
+                sessionSettings.style.display = 'none'; // Hide session settings
+                attendanceCapture.style.display = 'block'; // Show QR/NFC buttons
+                attendanceDisplay.style.display = 'block'; // Show attendance list
+                refreshStudentListUI(); // Initialize the displayed list
+                alert(`Session for ${currentCourse} (${currentSemester}) at ${currentClassTimeStr} started. Ready to scan!`);
+            });
+
+            // --- Attendance List UI Refresh ---
+            function refreshStudentListUI() {
+                studentList.innerHTML = ''; // Clear previous list items
+
+                if (attendanceDataForCurrentSession.length === 0) {
+                    studentList.innerHTML = '<li>No students marked for this session yet.</li>';
+                } else {
+                    // Sort alphabetically by name for consistent display
+                    attendanceDataForCurrentSession.sort((a, b) => a.name.localeCompare(b.name));
+
+                    attendanceDataForCurrentSession.forEach(sessionRecord => {
+                        const student = studentsDB.find(s => s.id === sessionRecord.id); // Should always find if properly added
+                        if (student) {
+                            const li = document.createElement('li');
+                            li.textContent = `${student.name} (${student.program}) - Status: ${sessionRecord.status}`;
+                            studentList.appendChild(li);
+                        }
+                    });
+                }
+            }
+
+            // --- Export to Excel Functionality ---
+            exportExcelBtn.addEventListener('click', () => {
+                if (studentsDB.length === 0) {
+                    alert('No student data to export. Please register students first.');
+                    return;
+                }
+                // Define CSV headers
+                let csv = 'Student ID,Name,Program,Total Present Count,Total Late Count\n';
+                // Add each student's data to the CSV string
+                studentsDB.forEach(s => {
+                    // Ensure counts are numbers and default to 0 if undefined for robust CSV output
+                    const present = s.presentCount ? s.presentCount : 0;
+                    const late = s.lateCount ? s.lateCount : 0;
+                    // Wrap fields in quotes to handle commas within data
+                    csv += `"${s.id}","${s.name}","${s.program}",${present},${late}\n`;
+                });
+
+                // Create a Blob containing the CSV data
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob); // Create a URL for the blob
+                const a = document.createElement('a'); // Create a temporary anchor element
+                a.href = url;
+                // Suggest a filename for the download, including the current date
+                a.download = `All_Student_Attendance_Summary_${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a); // Append to body (required for Firefox)
+                a.click(); // Programmatically click the link to trigger download
+                document.body.removeChild(a); // Clean up the temporary link
+                URL.revokeObjectURL(url); // Release the object URL
+            });
+
+            // --- QR Code Scanner Functions ---
+            scanQrBtn.addEventListener('click', () => {
+                // Pre-check if a session has been started
+                if (!currentSessionId) { // Check for the session ID as the ultimate indicator
+                    alert('Please start a session first (enter Course, Semester, Class Time) before scanning.');
+                    return;
+                }
+                if (qrScanningActive) return; // Prevent multiple scanner instances from running
+                qrScanningActive = true;
+                attendanceCapture.style.pointerEvents = 'none'; // Disable buttons during scan to avoid issues
+                startQrScanner();
+            });
+
+            function startQrScanner() {
+                qrVideo.style.display = 'block';
+                qrCanvas.style.display = 'block';
+                // Request access to the user's camera (rear camera preferred)
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                    .then(stream => {
+                        qrVideo.srcObject = stream;
+                        qrVideo.setAttribute('playsinline', true); // Essential for iOS Safari
+                        qrVideo.play();
+                        requestAnimationFrame(tick); // Start the QR scanning loop
+                    })
+                    .catch(err => {
+                        alert('Could not access camera for QR scanning: ' + err.message + '\nEnsure camera permissions are granted.');
+                        console.error('Camera access error:', err);
+                        qrScanningActive = false; // Reset flag
+                        attendanceCapture.style.pointerEvents = 'auto'; // Re-enable buttons
+                        qrVideo.style.display = 'none'; // Hide video element
+                        qrCanvas.style.display = 'none'; // Hide canvas element
+                    });
+            }
+
+            function tick() {
+                if (!qrScanningActive) { // Stop if scanning is no longer active
+                    return;
+                }
+
+                if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
+                    // Set canvas dimensions to match video
+                    qrCanvas.height = qrVideo.videoHeight;
+                    qrCanvas.width = qrVideo.videoWidth;
+                    // Draw video frame onto canvas
+                    qrCanvasContext.drawImage(qrVideo, 0, 0, qrCanvas.width, qrCanvas.height);
+                    // Get image data from canvas for QR code detection
+                    const imageData = qrCanvasContext.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+                    // Use jsQR to find a QR code
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "dontInvert", // Optimize for standard (light module on dark background) QR codes
+                    });
+                    if (code) {
+                        // QR code found, process its data
+                        processScannedId(code.data.trim());
+                        stopQrScanner(); // Stop the camera once a code is found
+                        return; // Exit tick loop
+                    }
+                }
+                // Continue scanning if no QR code found yet and scanning is active
+                requestAnimationFrame(tick);
+            }
+
+            function stopQrScanner() {
+                qrScanningActive = false;
+                qrVideo.pause();
+                // Stop all tracks (video, audio if any) associated with the camera stream
+                if (qrVideo.srcObject) {
+                    qrVideo.srcObject.getTracks().forEach(track => track.stop());
+                }
+                qrVideo.srcObject = null; // Clear stream reference
+                qrVideo.style.display = 'none'; // Hide video
+                qrCanvas.style.display = 'none'; // Hide canvas
+                attendanceCapture.style.pointerEvents = 'auto'; // Re-enable buttons
+            }
+
+            // --- NFC Scanning Functionality ---
+            scanNfcBtn.addEventListener('click', () => {
+                // Pre-check if a session has been started
+                if (!currentSessionId) { // Check for the session ID as the ultimate indicator
+                    alert('Please start a session first (enter Course, Semester, Class Time) before scanning NFC.');
+                    return;
+                }
+
+                // Check for Web NFC API support
+                if (!('NDEFReader' in window)) {
+                    alert('NFC is not supported on this device or browser. Please use QR scan.');
+                    return;
+                }
+
+                const ndef = new NDEFReader();
+                ndef.scan().then(() => {
+                    alert('NFC scan started. Tap your NFC tag to the back of your device.');
+                    // Event listener for reading errors
+                    ndef.onreadingerror = () => {
+                        alert('Cannot read data from NFC tag. Make sure it\'s a valid tag and try again.');
+                    };
+                    // Event listener for successful tag reading
+                    ndef.onreading = event => {
+                        let nfcId = '';
+                        // Attempt to get serial number first (unique hardware ID)
+                        // Note: serialNumber is often device-specific and not always available or consistent for NDEF tags.
+                        // Reading data from records is generally more reliable for custom IDs.
+                        if (event.serialNumber) {
+                            nfcId = event.serialNumber;
+                        } else if (event.message && event.message.records && event.message.records.length > 0) {
+                            // If no serial, try to read text records from the NDEF message
+                            for (const record of event.message.records) {
+                                if (record.recordType === 'text') {
+                                    try {
+                                        const textDecoder = new TextDecoder(record.encoding);
+                                        nfcId = textDecoder.decode(record.data);
+                                        break; // Stop after finding the first text record
+                                    } catch (e) {
+                                        console.error('Error decoding NFC text record:', e);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (nfcId) {
+                            processScannedId(nfcId.trim()); // Process the ID
+                        } else {
+                            alert('NFC tag has no readable ID or text data.');
+                        }
+                    };
+                }).catch(error => {
+                    alert('NFC scan failed to start: ' + error.message + '\nEnsure NFC is enabled and permissions granted.');
+                    console.error('NFC scan error:', error);
+                });
+            });
+
+            // --- Core ID Processing Logic (for both QR and NFC) ---
+            function processScannedId(id) {
+                // Ensure a session is active before processing an ID
+                if (!currentSessionId) {
+                    alert('Error: Session not started. Please set course, semester, and class time before scanning IDs.');
+                    return;
+                }
+
+                const currentTime = new Date();
+                const lateThresholdMinutes = 15;
+                // Calculate the specific time after which a student is considered late
+                const lateTime = new Date(classStartTime.getTime() + lateThresholdMinutes * 60 * 1000);
+
+                let student = studentsDB.find(s => s.id === id); // Find student in the global database
+                const determinedStatus = currentTime > lateTime ? 'Late' : 'Present';
+
+                if (student) {
+                    // Student exists in the main database
+                    let existingSessionRecord = student.attendanceHistory.find(
+                        record => record.sessionId === currentSessionId
+                    );
+
+                    // --- CRITICAL CHANGE HERE: UPDATE COUNT AND STATUS EVERY TIME ---
+                    if (determinedStatus === 'Late') {
+                        student.lateCount = (student.lateCount || 0) + 1;
+                        alert(`Welcome, ${student.name}! Marked as Late. Total Late: ${student.lateCount}`);
+                    } else { // 'Present'
+                        student.presentCount = (student.presentCount || 0) + 1;
+                        alert(`Welcome, ${student.name}! Marked as Present. Total Present: ${student.presentCount}`);
+                    }
+
+                    if (existingSessionRecord) {
+                        // If record exists, simply update its status for the current session.
+                        existingSessionRecord.status = determinedStatus;
+                        // The counts are already updated above.
+                    } else {
+                        // If no record for this session, add a new one.
+                        const sessionAttendanceRecord = {
+                            sessionId: currentSessionId,
+                            status: determinedStatus,
+                            course: currentCourse,
+                            semester: currentSemester,
+                            classTime: currentClassTimeStr
+                        };
+                        student.attendanceHistory.push(sessionAttendanceRecord);
+                    }
+                    
+                    saveStudentsDB(); // Save updated student counts and history to local storage
+
+                    // Update the current session's attendance data for display
+                    // Find and update the existing record in `attendanceDataForCurrentSession` or add a new one
+                    const displayRecordIndex = attendanceDataForCurrentSession.findIndex(rec => rec.id === id);
+                    if (displayRecordIndex !== -1) {
+                        attendanceDataForCurrentSession[displayRecordIndex].status = determinedStatus;
+                    } else {
+                        attendanceDataForCurrentSession.push({
+                            id: id,
+                            name: student.name,
+                            program: student.program,
+                            status: determinedStatus
+                        });
+                    }
+                    refreshStudentListUI(); // Update the displayed list
+
+                } else {
+                    // Student does not exist, prompt for registration
+                    alert(`Student ID: ${id} not found. Please register the student.`);
+                    // Store the determined status for the new student
+                    pendingStudentScan = {
+                        id: id,
+                        status: determinedStatus,
+                        course: currentCourse,
+                        semester: currentSemester,
+                        classTime: currentClassTimeStr,
+                        sessionId: currentSessionId
+                    };
+                    showNewStudentModal(id); // Pass the ID to the modal to pre-fill
+                }
+            }
+
+            // --- New Student Modal Functions ---
+            function showNewStudentModal(idToPrepopulate = '') {
+                newStudentModal.style.display = 'block';
+                studentIdInput.value = idToPrepopulate; // Pre-fill the ID field
+                document.getElementById('student-name').value = '';
+                document.getElementById('student-program').value = '';
+            }
+
+            cancelStudentBtn.addEventListener('click', () => {
+                newStudentModal.style.display = 'none';
+                pendingStudentScan = null; // Clear pending scan
+            });
+
+            newStudentForm.addEventListener('submit', e => {
+                e.preventDefault();
+                const id = document.getElementById('student-id').value.trim();
+                const name = document.getElementById('student-name').value.trim();
+                const program = document.getElementById('student-program').value.trim();
+
+                if (!id || !name || !program) {
+                    alert('Please fill in all student details.');
+                    return;
+                }
+
+                // Check if ID already exists in the global database
+                if (studentsDB.some(s => s.id === id)) {
+                    alert('A student with this ID already exists. Please use a unique ID or correct the existing student info.');
+                    return;
+                }
+
+                const newStudent = {
+                    id: id,
+                    name: name,
+                    program: program,
+                    presentCount: 0, // Initialize counts for new student
+                    lateCount: 0,
+                    attendanceHistory: [] // Initialize empty history
+                };
+
+                studentsDB.push(newStudent);
+                
+                alert(`Student ${name} registered successfully!`);
+                newStudentModal.style.display = 'none';
+
+                // If this registration was triggered by a scan, mark attendance now and update counts
+                if (pendingStudentScan && pendingStudentScan.id === id && pendingStudentScan.sessionId === currentSessionId) {
+                    // Update new student's cumulative counts based on the pending scan's status
+                    if (pendingStudentScan.status === 'Late') {
+                        newStudent.lateCount += 1;
+                    } else { // 'Present'
+                        newStudent.presentCount += 1;
+                    }
+
+                    // Add to the new student's attendance history
+                    newStudent.attendanceHistory.push({
+                        sessionId: pendingStudentScan.sessionId,
+                        status: pendingStudentScan.status,
+                        course: pendingStudentScan.course,
+                        semester: pendingStudentScan.semester,
+                        classTime: pendingStudentScan.classTime
+                    });
+
+                    // Add to current session's display list
+                    attendanceDataForCurrentSession.push({
+                        id: newStudent.id,
+                        name: newStudent.name,
+                        program: newStudent.program,
+                        status: pendingStudentScan.status
+                    });
+
+                    refreshStudentListUI(); // Update the attendance list
+                    pendingStudentScan = null; // Clear the pending scan
+                }
+                saveStudentsDB(); // Save the new student (and updated counts/history)
+            });
+        });
+    </script>
+</body>
+</html>
